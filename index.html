@@ -467,6 +467,21 @@ h1,h2,h3 { font-family: 'Playfair Display', serif; }
         <button class="btn" onclick="setLang('de')" id="btn-de" style="flex:1">🇩🇪 Deutsch</button>
         <button class="btn" onclick="setLang('en')" id="btn-en" style="flex:1">🇬🇧 English</button>
       </div>
+      <div class="section-title" style="margin-top:20px" id="lbl-feedback-title">Feedback</div>
+      <div class="card">
+        <p id="lbl-feedback-sub" style="font-size:0.83rem;color:var(--gray);margin-bottom:14px;line-height:1.6">Ideen, Wünsche oder Fehler? Schreib mir direkt – ich lese alles persönlich.</p>
+        <div class="form-group">
+          <label id="lbl-feedback-msg">Deine Nachricht</label>
+          <textarea id="feedback-text" rows="3" placeholder="z.B. Ich vermisse die Funktion..."></textarea>
+        </div>
+        <div class="form-group">
+          <label id="lbl-feedback-email">Deine E-Mail (optional – falls du eine Antwort möchtest)</label>
+          <input type="email" id="feedback-email" placeholder="name@beispiel.com">
+        </div>
+        <button class="btn btn-primary" onclick="sendFeedback()" id="btn-send-feedback">💬 Feedback senden</button>
+        <div id="feedback-status" style="margin-top:10px;font-size:0.83rem;display:none"></div>
+      </div>
+
       <div class="section-title" style="margin-top:20px" id="lbl-data-title">Daten</div>
       <div class="card">
         <button class="btn btn-secondary" onclick="exportData()" id="btn-export">📤 Daten exportieren</button>
@@ -643,6 +658,14 @@ const T = {
     occasions: 'Anlässe', occasionsSub: 'Suche nach Anlass-Typ – egal wer die Person war',
     allGrades: '— Alle Grade —', noOccasions: 'Keine Einträge gefunden.',
     gradeLabel: 'Grad', avgLabel: 'Ø', totalLabel: 'Gesamt',
+    feedbackTitle: 'Feedback',
+    feedbackSub: 'Ideen, Wünsche oder Fehler? Schreib mir direkt – ich lese alles persönlich.',
+    feedbackMsg: 'Deine Nachricht',
+    feedbackEmail: 'Deine E-Mail (optional – falls du eine Antwort möchtest)',
+    feedbackSend: '💬 Feedback senden',
+    feedbackOk: '✅ Danke! Deine Nachricht ist angekommen.',
+    feedbackErr: '❌ Fehler beim Senden – bitte versuche es nochmals.',
+    feedbackEmpty: '⚠️ Bitte schreib eine Nachricht.',
   },
   en: {
     heroSub: 'Your social gift memory',
@@ -677,6 +700,14 @@ const T = {
     occasions: 'Occasions', occasionsSub: 'Search by occasion type – regardless of who the person was',
     allGrades: '— All Grades —', noOccasions: 'No entries found.',
     gradeLabel: 'Grade', avgLabel: 'Avg', totalLabel: 'Total',
+    feedbackTitle: 'Feedback',
+    feedbackSub: 'Ideas, wishes or bugs? Write to me directly – I read everything personally.',
+    feedbackMsg: 'Your message',
+    feedbackEmail: 'Your email (optional – if you want a reply)',
+    feedbackSend: '💬 Send feedback',
+    feedbackOk: '✅ Thank you! Your message has been received.',
+    feedbackErr: '❌ Error sending – please try again.',
+    feedbackEmpty: '⚠️ Please write a message.',
   }
 };
 const t = () => T[state.lang];
@@ -706,6 +737,11 @@ function applyLang() {
   const si = document.getElementById('search-input'); if(si) si.placeholder = l.searchPlaceholder;
   setEl('lbl-occasions-title', l.occasions);
   setEl('lbl-occasions-sub', l.occasionsSub);
+  setEl('lbl-feedback-title', l.feedbackTitle);
+  setEl('lbl-feedback-sub', l.feedbackSub);
+  setEl('lbl-feedback-msg', l.feedbackMsg);
+  setEl('lbl-feedback-email', l.feedbackEmail);
+  setEl('btn-send-feedback', l.feedbackSend);
   ['lang-btn2','lang-btn3','lang-btn4','lang-btn5'].forEach(id => {
     const el = document.getElementById(id);
     if(el) el.textContent = state.lang === 'de' ? 'EN' : 'DE';
@@ -1104,6 +1140,70 @@ function renderOccasions() {
       ${rows}
     </div>`;
   }).join('');
+}
+
+// ══════════════════════════════════════════════
+// FEEDBACK (Formspree)
+// ══════════════════════════════════════════════
+async function sendFeedback() {
+  const l = t();
+  const msg = document.getElementById('feedback-text').value.trim();
+  const email = document.getElementById('feedback-email').value.trim();
+  const status = document.getElementById('feedback-status');
+  const btn = document.getElementById('btn-send-feedback');
+
+  if(!msg) {
+    status.style.display = 'block';
+    status.style.color = 'var(--red)';
+    status.textContent = l.feedbackEmpty;
+    return;
+  }
+
+  btn.textContent = '⏳ Wird gesendet...';
+  btn.disabled = true;
+  status.style.display = 'none';
+
+  try {
+    // ══════════════════════════════════════════
+    // FORMSPREE SETUP:
+    // 1. Geh auf formspree.io → kostenlos registrieren
+    // 2. "New Form" erstellen → du bekommst eine Form-ID
+    // 3. Ersetze "YOUR_FORM_ID" unten mit deiner ID
+    //    Beispiel: https://formspree.io/f/xpzgkwqr
+    // ══════════════════════════════════════════
+    const FORMSPREE_ID = 'mjgepbok';
+
+    const res = await fetch(`https://formspree.io/f/${FORMSPREE_ID}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({
+        message: msg,
+        email: email || 'Keine Angabe',
+        app_version: 'GiftMemory Web v1',
+        lang: state.lang,
+        persons_count: state.persons.length,
+        gifts_count: state.gifts.length,
+      })
+    });
+
+    if(res.ok) {
+      status.style.display = 'block';
+      status.style.color = 'var(--green)';
+      status.textContent = l.feedbackOk;
+      document.getElementById('feedback-text').value = '';
+      document.getElementById('feedback-email').value = '';
+      trackEvent('Feedback gesendet');
+    } else {
+      throw new Error('Server error');
+    }
+  } catch(e) {
+    status.style.display = 'block';
+    status.style.color = 'var(--red)';
+    status.textContent = l.feedbackErr;
+  }
+
+  btn.textContent = l.feedbackSend;
+  btn.disabled = false;
 }
 
 function renderAll() { renderPersonList(); }
